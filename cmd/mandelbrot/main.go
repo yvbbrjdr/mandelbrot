@@ -15,6 +15,15 @@ import (
 func processData(a []int) []byte {
 	var m int
 	for k, v := range a {
+		if k == 0 || v < m {
+			m = v
+		}
+	}
+	m--
+	for k := range a {
+		a[k] -= m
+	}
+	for k, v := range a {
 		if k == 0 || v > m {
 			m = v
 		}
