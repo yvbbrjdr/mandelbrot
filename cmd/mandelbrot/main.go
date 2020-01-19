@@ -23,35 +23,39 @@ func processData(a []int) []byte {
 	for k := range a {
 		a[k] -= m
 	}
+
 	for k, v := range a {
 		if k == 0 || v > m {
 			m = v
 		}
 	}
+
 	base := math.Log(float64(m))
 	ret := make([]byte, len(a))
 	for k, v := range a {
 		ret[k] = byte(math.Log(float64(v)) * 255 / base)
 	}
+
 	return ret
 }
 
 func genMandelbrot(xMin, yMin, xSpan *big.Float, width, height, maxIter int,
 	julia *mandelbrot.Complex, output string) error {
-	data := mandelbrot.MandelbrotPlane(xMin, yMin, xSpan, width, height,
-		maxIter, julia)
-	pixel := processData(data)
-	im := image.NewGray(image.Rect(0, 0, width, height))
-	im.Pix = pixel
 	f, err := os.Create(output)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	err = png.Encode(f, im)
-	if err != nil {
+
+	data := mandelbrot.Plane(xMin, yMin, xSpan, width, height, maxIter, julia)
+	pixel := processData(data)
+	im := image.NewGray(image.Rect(0, 0, width, height))
+	im.Pix = pixel
+
+	if err = png.Encode(f, im); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -72,10 +76,12 @@ func main() {
 	output := flag.String("output", "output.png", "output filename")
 	help := flag.Bool("h", false, "print this help message")
 	flag.Parse()
+
 	if *help {
 		flag.Usage()
 		return
 	}
+
 	xMin, ok := big.NewFloat(0).SetString(*xMinStr)
 	if !ok {
 		fail("invalid argument: xmin")
@@ -88,6 +94,7 @@ func main() {
 	if !ok {
 		fail("invalid argument: xspan")
 	}
+
 	var julia *mandelbrot.Complex
 	if *xJuliaStr != "" || *yJuliaStr != "" {
 		xJulia, ok := big.NewFloat(0).SetString(*xJuliaStr)
@@ -100,6 +107,7 @@ func main() {
 		}
 		julia = mandelbrot.NewComplex(xJulia, yJulia)
 	}
+
 	if err := genMandelbrot(xMin, yMin, xSpan, *width, *height, *maxIter, julia,
 		*output); err != nil {
 		fail(err.Error())

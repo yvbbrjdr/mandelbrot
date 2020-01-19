@@ -6,11 +6,6 @@ import (
 	"os"
 )
 
-type dataPacket struct {
-	index int
-	data  int
-}
-
 func Mandelbrot(p *Complex, maxIter int, julia *Complex) int {
 	var x, c *Complex
 	if julia == nil {
@@ -20,30 +15,41 @@ func Mandelbrot(p *Complex, maxIter int, julia *Complex) int {
 		x = p.Copy()
 		c = julia
 	}
+
 	for i := 1; i <= maxIter; i++ {
 		if x.SqrAndInc(c).BlowUp() {
 			return i
 		}
 	}
+
 	return -1
 }
 
-func MandelbrotPlane(xMin, yMin, xSpan *big.Float, width, height, maxIter int,
+func Plane(xMin, yMin, xSpan *big.Float, width, height, maxIter int,
 	julia *Complex) []int {
+	type dataPacket struct {
+		index int
+		data  int
+	}
+
 	fWidth := big.NewFloat(float64(width))
 	fHeight := big.NewFloat(float64(height))
 	ySpan := big.NewFloat(0).Mul(xSpan, fHeight)
 	ySpan.Quo(ySpan, fWidth)
-	a := make([]int, width*height)
+
+	ret := make([]int, width*height)
 	for i := 0; i < height; i++ {
-		fmt.Fprintf(os.Stderr, "Computing Row %d\r", i)
+		fmt.Fprintf(os.Stderr, "Computing Row %d/%d\r", i+1, height)
+
 		y := big.NewFloat(float64(height - i - 1))
 		y.Mul(y, ySpan).Quo(y, fHeight).Add(y, yMin)
+
 		c := make(chan dataPacket, width)
 		for j := 0; j < width; j++ {
 			x := big.NewFloat(float64(j))
 			x.Mul(x, xSpan).Quo(x, fWidth).Add(x, xMin)
 			index := i*width + j
+
 			go func() {
 				c <- dataPacket{
 					index,
@@ -53,20 +59,23 @@ func MandelbrotPlane(xMin, yMin, xSpan *big.Float, width, height, maxIter int,
 		}
 		for j := 0; j < width; j++ {
 			packet := <-c
-			a[packet.index] = packet.data
+			ret[packet.index] = packet.data
 		}
 	}
 	fmt.Fprintln(os.Stderr)
+
 	var m int
-	for k, v := range a {
+	for k, v := range ret {
 		if k == 0 || v > m {
 			m = v
 		}
 	}
-	for k, v := range a {
+	m++
+	for k, v := range ret {
 		if v == -1 {
-			a[k] = m + 1
+			ret[k] = m
 		}
 	}
-	return a
+
+	return ret
 }
