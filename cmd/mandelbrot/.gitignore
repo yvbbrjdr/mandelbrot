@@ -1,0 +1,5 @@
+# Binaries for programs and plugins
+mandelbrot
+
+# Output images
+output.png
