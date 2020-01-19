@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"os"
 	"runtime"
+	"sync"
 )
 
 func Mandelbrot(p *Complex, maxIter int, julia *Complex) int {
@@ -42,18 +43,14 @@ func Row(xMin, xSpan, y *big.Float, width, maxIter int, julia *Complex) []int {
 
 func Plane(xMin, yMin, xSpan *big.Float, width, height, maxIter int,
 	julia *Complex) []int {
-	type dataPacket struct {
-		offset int
-		data   []int
-	}
-
 	fWidth := big.NewFloat(float64(width))
 	fHeight := big.NewFloat(float64(height))
 	ySpan := big.NewFloat(0).Mul(xSpan, fHeight)
 	ySpan.Quo(ySpan, fWidth)
 
-	dataChan := make(chan dataPacket, height)
+	ret := make([]int, width*height)
 	signalChan := make(chan struct{}, runtime.NumCPU())
+	var wg sync.WaitGroup
 	for i := 0; i < height; i++ {
 		fmt.Fprintf(os.Stderr, "Computing Row %d/%d\r", i+1, height)
 
@@ -62,21 +59,15 @@ func Plane(xMin, yMin, xSpan *big.Float, width, height, maxIter int,
 
 		offset := i * width
 		signalChan <- struct{}{}
+		wg.Add(1)
 		go func() {
-			dataChan <- dataPacket{
-				offset,
-				Row(xMin, xSpan, y, width, maxIter, julia),
-			}
+			defer wg.Done()
+			copy(ret[offset:], Row(xMin, xSpan, y, width, maxIter, julia))
 			<-signalChan
 		}()
 	}
+	wg.Wait()
 	fmt.Fprintln(os.Stderr)
-
-	ret := make([]int, width*height)
-	for i := 0; i < height; i++ {
-		data := <-dataChan
-		copy(ret[data.offset:], data.data)
-	}
 
 	var m int
 	for k, v := range ret {
